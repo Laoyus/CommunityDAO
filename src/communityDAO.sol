@@ -1,133 +1,114 @@
-//SPDX-License-Identifier: MIT
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
-import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract CommunityDAO is ERC721 {
     uint256 private _tokenIds;
+    uint256 public constant TOKENS_PER_ETH = 1000;
 
     struct Member {
         address memberAddress;
-        uint256 contribution;
-        uint256 profileNftId; // ID of the profile NFT
+        uint256 contribution; // ETH contributed
+        uint256 profileNftId;
+        uint256 votingPower;
+        bool exists;
     }
-
-    uint256 public constant TOKENS_PER_ETH = 1000; // Example conversion rate
 
     mapping(address => Member) public members;
+    mapping(address => uint256) private _votingBalances;
     address[] public memberList;
 
-    event MemberAdded(address indexed member, uint256 contribution);
-    event ContributionUpdated(address indexed member, uint256 newContribution);
-    event TokensPurchased(
+    event MemberRegistered(address indexed member, uint256 nftId);
+    event ContributionAdded(
         address indexed member,
-        uint256 ethAmount,
-        uint256 tokenAmount
+        uint256 amount,
+        uint256 votingPower
     );
+    event VotingPowerUpdated(address indexed member, uint256 newVotingPower);
 
-    modifier newMemberOnly() {
-        require(
-            members[msg.sender].memberAddress == address(0),
-            "Already a member"
-        );
-        _;
-    }
+    constructor() ERC721("CommunityDAO Profile", "CDAONFT") {}
 
-    constructor() ERC721("CommunityProfile", "CPROF") {}
-
-    modifier existingMemberOnly() {
-        require(
-            members[msg.sender].memberAddress != address(0),
-            "Not a member"
-        );
-        _;
-    }
-
-    modifier nftMintedOnly() {
-        require(
-            members[msg.sender].profileNftId != 0,
-            "Profile NFT not minted"
-        );
-        _;
-    }
-
-    function payEth(uint256 _value) private returns (uint256) {
-        uint256 tokenAmount = _value * TOKENS_PER_ETH;
-
-        // Mint new tokens to the buyer
-        _mint(msg.sender, tokenAmount);
-
-        // Update member contribution
-        return tokenAmount;
-    }
-
-    function mintProfileNFT() external newMemberOnly returns (uint256) {
-        require(
-            members[msg.sender].profileNftId == 0,
-            "Profile NFT already minted"
-        );
-
-        uint256 newTokenId = _tokenIds;
-        _tokenIds++;
-
-        _safeMint(msg.sender, newTokenId);
-        members[msg.sender].profileNftId = newTokenId;
-
-        return newTokenId;
-    }
-
-    // Optional: Override transfer functions to make NFT soulbound (non-transferable)
+    // Makes NFTs soulbound (non-transferable)
     // function _beforeTokenTransfer(
     //     address from,
     //     address to,
     //     uint256 tokenId,
     //     uint256 batchSize
-    // ) internal virtual  {
-    //     require(from == address(0) || to == address(0), "Token is soulbound");
+    // ) internal virtual {
+    //     require(
+    //         from == address(0) || to == address(0),
+    //         "Soulbound NFT: Cannot transfer"
+    //     );
     //     super._beforeTokenTransfer(from, to, tokenId, batchSize);
     // }
 
-    function addMember() external payable nftMintedOnly returns (uint256) {
-        require(msg.value > 0, "Must send ETH to purchase tokens");
+    function registerMember() external payable returns (uint256) {
+        require(msg.value > 0, "Must contribute ETH to register");
+        require(!members[msg.sender].exists, "Already registered");
 
-        uint256 tokenAmount = msg.value * TOKENS_PER_ETH;
+        uint256 newTokenId = _tokenIds++;
+        _safeMint(msg.sender, newTokenId);
 
-        // Mint new tokens to the buyer
-        _mint(msg.sender, tokenAmount);
+        uint256 votingTokens = msg.value * TOKENS_PER_ETH;
+        _votingBalances[msg.sender] = votingTokens;
 
-        // Update member contribution
-        members[msg.sender].contribution += tokenAmount;
-        members[msg.sender].memberAddress = msg.sender;
+        members[msg.sender] = Member({
+            memberAddress: msg.sender,
+            contribution: msg.value,
+            profileNftId: newTokenId,
+            votingPower: votingTokens,
+            exists: true
+        });
+        memberList.push(msg.sender);
 
-        emit MemberAdded(msg.sender, tokenAmount);
-        return tokenAmount;
+        emit MemberRegistered(msg.sender, newTokenId);
+        emit ContributionAdded(msg.sender, msg.value, votingTokens);
+        return newTokenId;
     }
 
-    function updateContribution(
+    function addContribution() external payable {
+        require(members[msg.sender].exists, "Not a member");
+        require(msg.value > 0, "Must contribute ETH");
+
+        uint256 votingTokens = msg.value * TOKENS_PER_ETH;
+        _votingBalances[msg.sender] += votingTokens;
+
+        members[msg.sender].contribution += msg.value;
+        members[msg.sender].votingPower += votingTokens;
+
+        emit ContributionAdded(msg.sender, msg.value, votingTokens);
+    }
+
+    function getVotingPower(address member) external view returns (uint256) {
+        require(members[member].exists, "Not a member");
+        return _votingBalances[member];
+    }
+
+    function totalMembers() external view returns (uint256) {
+        return memberList.length;
+    }
+
+    function getMemberStruct(
         address _member
-    ) external payable existingMemberOnly returns (uint256) {
-        require(msg.value > 0, "Must send ETH");
-        members[_member].contribution += payEth(msg.value);
-
-        emit ContributionUpdated(_member, members[_member].contribution);
-        return members[_member].contribution;
-    }
-
-    function getMember(address _member) external view returns (Member memory) {
-        require(
-            members[_member].memberAddress != address(0),
-            "Member does not exist"
+    )
+        external
+        view
+        returns (
+            address memberAddress,
+            uint256 contribution,
+            uint256 profileNftId,
+            uint256 votingPower,
+            bool exists
+        )
+    {
+        Member storage member = members[_member];
+        return (
+            member.memberAddress,
+            member.contribution,
+            member.profileNftId,
+            member.votingPower,
+            member.exists
         );
-        return members[_member];
-    }
-
-    function getProfileNFT(address _member) external view returns (uint256) {
-        require(
-            members[_member].memberAddress != address(0),
-            "Member does not exist"
-        );
-        require(members[_member].profileNftId != 0, "No profile NFT minted");
-        return members[_member].profileNftId;
     }
 }
