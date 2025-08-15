@@ -1,66 +1,36 @@
-## Foundry
+# Community DAO Project
 
-**Foundry is a blazing fast, portable and modular toolkit for Ethereum application development written in Rust.**
+A decentralized community management system built on Ethereum using Solidity.
 
-Foundry consists of:
+## Contracts
 
--   **Forge**: Ethereum testing framework (like Truffle, Hardhat and DappTools).
--   **Cast**: Swiss army knife for interacting with EVM smart contracts, sending transactions and getting chain data.
--   **Anvil**: Local Ethereum node, akin to Ganache, Hardhat Network.
--   **Chisel**: Fast, utilitarian, and verbose solidity REPL.
+- CommunityDAO: [`0x11a99b229bac81a3a45a2566bc0c83ac3d89a30a`](https://sepolia.etherscan.io/address/0x11a99b229bac81a3a45a2566bc0c83ac3d89a30a)
+- CreateCommunity: [`0x801a82d5fc8050b283197bf3ca6654dab56e0e60`](https://sepolia.etherscan.io/address/0x801a82d5fc8050b283197bf3ca6654dab56e0e60)
 
-## Documentation
+## Setup
 
-https://book.getfoundry.sh/
-
-## Usage
-
-### Build
-
-```shell
-$ forge build
+1. Clone the repository
+```bash
+git clone https://github.com/YOUR_USERNAME/morph_project.git
+cd morph_project
 ```
 
-### Test
-
-```shell
-$ forge test
+2. Install dependencies
+```bash
+forge install
 ```
 
-### Format
-
-```shell
-$ forge fmt
+3. Create .env file
+```bash
+PRIVATE_KEY=your_private_key_here
+SEPOLIA_RPC_URL=your_rpc_url
 ```
 
-### Gas Snapshots
-
-```shell
-$ forge snapshot
+4. Deploy
+```bash
+forge script script/Deploy.s.sol:DeployContracts --rpc-url $SEPOLIA_RPC_URL --broadcast
 ```
 
-### Anvil
-
-```shell
-$ anvil
-```
-
-### Deploy
-
-```shell
-$ forge script script/Counter.s.sol:CounterScript --rpc-url <your_rpc_url> --private-key <your_private_key>
-```
-
-### Cast
-
-```shell
-$ cast <subcommand>
-```
-
-### Help
-
-```shell
-$ forge --help
-$ anvil --help
-$ cast --help
+## License
+MIT
 ```
